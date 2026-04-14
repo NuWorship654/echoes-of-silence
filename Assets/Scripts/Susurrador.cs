@@ -27,7 +27,6 @@ public class Susurrador : MonoBehaviour
     {
         agente = GetComponent<NavMeshAgent>();
 
-        // Buscar Animator en el objeto o en sus hijos
         animator = GetComponent<Animator>();
         if (animator == null)
             animator = GetComponentInChildren<Animator>(true);
@@ -69,7 +68,7 @@ public class Susurrador : MonoBehaviour
 
             case Estado.Atacando:
                 Atacar();
-                ActualizarAnimacion(0, true);
+                ActualizarAnimacion(0f, true);
                 break;
         }
     }
@@ -77,9 +76,11 @@ public class Susurrador : MonoBehaviour
     void ActualizarAnimacion(float velocidad, bool atacando)
     {
         if (animator == null) return;
-        animator.SetFloat("Velocidad", velocidad);
+
+        // CORRECCIÓN: los nombres deben coincidir exactamente con los
+        // parámetros del Animator Controller (Velocity y Atacando)
+        animator.SetFloat("Velocity", velocidad);
         animator.SetBool("Atacando", atacando);
-        Debug.Log("[Susurrador] Velocidad anim: " + velocidad);
     }
 
     void Patrullar()
@@ -136,9 +137,14 @@ public class Susurrador : MonoBehaviour
     void Atacar()
     {
         if (jugador == null) return;
-        transform.LookAt(jugador);
-        float distancia = Vector3.Distance(transform.position, jugador.position);
 
+        // Solo rotar en Y para evitar que el modelo se incline
+        Vector3 direccion = jugador.position - transform.position;
+        direccion.y = 0f;
+        if (direccion != Vector3.zero)
+            transform.rotation = Quaternion.LookRotation(direccion);
+
+        float distancia = Vector3.Distance(transform.position, jugador.position);
         if (distancia > distanciaAtaque)
             estadoActual = Estado.Persiguiendo;
     }
