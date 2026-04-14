@@ -22,7 +22,10 @@ public class PlayerController : MonoBehaviour
     public Light linterna;
     public float duracionBateria = 120f;
 
-    // Referencias privadas
+    [Header("Interacción")]
+    public float distanciaInteraccion = 3f;
+    public LayerMask capaInteraccion;
+
     private CharacterController controller;
     private Camera cam;
     private float rotacionX = 0f;
@@ -30,16 +33,22 @@ public class PlayerController : MonoBehaviour
     private bool linternaEncendida = true;
     private bool estaMoviendo = false;
 
-    // Input System
     private PlayerInput playerInput;
     private InputAction moverAction;
     private InputAction mirarAction;
     private InputAction correrAction;
     private InputAction linternaAction;
+    private InputAction interactuarAction;
+
+    private Inventario inventario;
+    private IInteractuable objetoEnMira;
 
     void Awake()
     {
         playerInput = GetComponent<PlayerInput>();
+        inventario = GetComponent<Inventario>();
+        if (inventario == null)
+            inventario = gameObject.AddComponent<Inventario>();
     }
 
     void Start()
@@ -48,7 +57,6 @@ public class PlayerController : MonoBehaviour
         cam = GetComponentInChildren<Camera>();
         bateria = duracionBateria;
 
-        // Configurar acciones de input manualmente
         moverAction = new InputAction("Mover", binding: "<Gamepad>/leftStick");
         moverAction.AddCompositeBinding("2DVector")
             .With("Up", "<Keyboard>/w")
@@ -59,15 +67,17 @@ public class PlayerController : MonoBehaviour
         mirarAction = new InputAction("Mirar", binding: "<Mouse>/delta");
         correrAction = new InputAction("Correr", binding: "<Keyboard>/leftShift");
         linternaAction = new InputAction("Linterna", binding: "<Keyboard>/f");
+        interactuarAction = new InputAction("Interactuar", binding: "<Keyboard>/e");
 
         moverAction.Enable();
         mirarAction.Enable();
         correrAction.Enable();
         linternaAction.Enable();
+        interactuarAction.Enable();
 
         linternaAction.performed += _ => ToggleLinterna();
+        interactuarAction.performed += _ => Interactuar();
 
-        // Bloquear cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -78,6 +88,7 @@ public class PlayerController : MonoBehaviour
         ManejarCamera();
         ManejarLinterna();
         ActualizarRuido();
+        DetectarObjetoEnMira();
     }
 
     void ManejarMovimiento()
@@ -139,14 +150,42 @@ public class PlayerController : MonoBehaviour
             nivelRuido = ruidoCaminar;
     }
 
+    void DetectarObjetoEnMira()
+    {
+        Ray rayo = new Ray(cam.transform.position, cam.transform.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(rayo, out hit, distanciaInteraccion, capaInteraccion))
+        {
+            IInteractuable interactuable = hit.collider.GetComponent<IInteractuable>();
+            if (interactuable != null)
+            {
+                objetoEnMira = interactuable;
+                return;
+            }
+        }
+
+        objetoEnMira = null;
+    }
+
+    void Interactuar()
+    {
+        if (objetoEnMira != null)
+            objetoEnMira.Interactuar(this);
+    }
+
     void OnDestroy()
     {
         moverAction.Disable();
         mirarAction.Disable();
         correrAction.Disable();
         linternaAction.Disable();
+        interactuarAction.Disable();
     }
 
     public float GetNivelRuido() => nivelRuido;
     public float GetBateriaNormalizada() => bateria / duracionBateria;
+    public Inventario GetInventario() => inventario;
+    public string GetTextoInteraccion() => objetoEnMira?.GetTextoInteraccion() ?? "";
+    public bool HayObjetoEnMira() => objetoEnMira != null;
 }
